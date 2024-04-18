@@ -40,22 +40,10 @@ const querySchema = z.object({
     max_car_spaces: z
         .preprocess((val) => processNumber(String(val)), z.number())
         .optional(),
-    min_floor_size: z
+    min_sqm: z
         .preprocess((val) => processNumber(String(val)), z.number())
         .optional(),
-    max_floor_size: z
-        .preprocess((val) => processNumber(String(val)), z.number())
-        .optional(),
-    min_lot_size: z
-        .preprocess((val) => processNumber(String(val)), z.number())
-        .optional(),
-    max_lot_size: z
-        .preprocess((val) => processNumber(String(val)), z.number())
-        .optional(),
-    min_building_size: z
-        .preprocess((val) => processNumber(String(val)), z.number())
-        .optional(),
-    max_building_size: z
+    max_sqm: z
         .preprocess((val) => processNumber(String(val)), z.number())
         .optional(),
     before: z
@@ -185,6 +173,17 @@ export async function propertyListings(
             }
         }
 
+        function areaSize(propertyType: string) {
+            switch (propertyType) {
+                case 'condominium':
+                    return `AND property.floor_area BETWEEN ${queryParams.min_sqm} AND ${queryParams.max_sqm}`
+                case 'warehouse':
+                    return `AND property.building_size BETWEEN ${queryParams.min_sqm} AND ${queryParams.max_sqm}`
+                default:
+                    return `AND property.lot_area BETWEEN ${queryParams.min_sqm} AND ${queryParams.max_sqm}`
+            }
+        }
+
         const queryParams = parsedQueryParams.data
 
         const defaultSqlQuery = `
@@ -250,6 +249,18 @@ export async function propertyListings(
 			${
                 queryParams?.min_car_spaces && queryParams?.max_car_spaces
                     ? `AND property.parking_space >= ${queryParams.min_car_spaces} AND property.parking_space <= ${queryParams.max_car_spaces}`
+                    : ''
+            }
+            ${
+                queryParams?.min_price && queryParams?.max_price
+                    ? `AND listing.price BETWEEN ${queryParams.min_price} AND ${queryParams.max_price}`
+                    : ''
+            }
+            ${
+                queryParams?.property_type &&
+                queryParams?.min_sqm &&
+                queryParams?.max_sqm
+                    ? areaSize(queryParams.property_type)
                     : ''
             }
 			${
@@ -336,6 +347,18 @@ export async function propertyListings(
                         ? `AND property.parking_space >= ${queryParams.min_car_spaces} AND property.parking_space <= ${queryParams.max_car_spaces}`
                         : ''
                 }
+                ${
+                    queryParams?.min_price && queryParams?.max_price
+                        ? `AND listing.price BETWEEN ${queryParams.min_price} AND ${queryParams.max_price}`
+                        : ''
+                }
+                ${
+                    queryParams?.property_type &&
+                    queryParams?.min_sqm &&
+                    queryParams?.max_sqm
+                        ? areaSize(queryParams.property_type)
+                        : ''
+                }
 			)
 			SELECT *
 			FROM similarity
@@ -371,6 +394,8 @@ export async function propertyListings(
             },
         }
     } catch (error) {
+        console.log(error)
+
         return {
             jsonBody: {
                 message: 'Something went wrong.' || error?.message,
