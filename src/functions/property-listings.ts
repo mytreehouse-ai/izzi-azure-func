@@ -243,17 +243,17 @@ export async function propertyListings(
                 }
                 ${
                     queryParams?.min_bedrooms && queryParams?.max_bedrooms
-                        ? `AND property.bedrooms >= ${queryParams.min_bedrooms} AND property.bedrooms <= ${queryParams.max_bedrooms}`
+                        ? `AND property.bedrooms BETWEEN ${queryParams.min_bedrooms} AND ${queryParams.max_bedrooms}`
                         : ''
                 }
                 ${
                     queryParams?.min_bathrooms && queryParams?.max_bathrooms
-                        ? `AND property.bathrooms >= ${queryParams.min_bathrooms} AND property.bathrooms <= ${queryParams.max_bathrooms}`
+                        ? `AND property.bathrooms BETWEEN ${queryParams.min_bathrooms} AND ${queryParams.max_bathrooms}`
                         : ''
                 }
                 ${
                     queryParams?.min_car_spaces && queryParams?.max_car_spaces
-                        ? `AND property.parking_space >= ${queryParams.min_car_spaces} AND property.parking_space <= ${queryParams.max_car_spaces}`
+                        ? `AND property.parking_space BETWEEN ${queryParams.min_car_spaces} AND ${queryParams.max_car_spaces}`
                         : ''
                 }
                 ${
@@ -340,18 +340,18 @@ export async function propertyListings(
                     AND WORD_SIMILARITY(listing.description, '${queryParams.search}') > 0
                     ${
                         queryParams?.min_bedrooms && queryParams?.max_bedrooms
-                            ? `AND property.bedrooms >= ${queryParams.min_bedrooms} AND property.bedrooms <= ${queryParams.max_bedrooms}`
+                            ? `AND property.bedrooms BETWEEN ${queryParams.min_bedrooms} AND ${queryParams.max_bedrooms}`
                             : ''
                     }
                     ${
                         queryParams?.min_bathrooms && queryParams?.max_bathrooms
-                            ? `AND property.bathrooms >= ${queryParams.min_bathrooms} AND property.bathrooms <= ${queryParams.max_bathrooms}`
+                            ? `AND property.bathrooms BETWEEN ${queryParams.min_bathrooms} AND ${queryParams.max_bathrooms}`
                             : ''
                     }
                     ${
                         queryParams?.min_car_spaces &&
                         queryParams?.max_car_spaces
-                            ? `AND property.parking_space >= ${queryParams.min_car_spaces} AND property.parking_space <= ${queryParams.max_car_spaces}`
+                            ? `AND property.parking_space BETWEEN ${queryParams.min_car_spaces} AND ${queryParams.max_car_spaces}`
                             : ''
                     }
                     ${
