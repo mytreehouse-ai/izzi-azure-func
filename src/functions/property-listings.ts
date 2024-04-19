@@ -186,163 +186,72 @@ export async function propertyListings(
 
         const queryParams = parsedQueryParams.data
 
-        const defaultSqlQuery = `
-			SELECT
-				listing.id,
-				INITCAP(listing.listing_title) AS listing_title,
-				listing.listing_url,
-				listing.price,
-				listing.price_formatted,
-				listing.price_for_rent_per_sqm,
-				listing.price_for_sale_per_sqm,
-				listing.price_for_rent_per_sqm_formatted,
-				listing.price_for_sale_per_sqm_formatted,
-				listing_type.name AS listing_type,
-				property_status.name AS property_status,
-				property_type.name AS property_type,
-				listing.sub_category,
-				property.building_name,
-				property.subdivision_name,
-				property.floor_area,
-				property.lot_area,
-				property.building_size,
-				property.bedrooms,
-				property.bathrooms,
-				property.parking_space,
-				city.name AS city,
-				property.area,
-				property.address,
-				property.features,
-				property.main_image_url,
-				ST_AsGeoJSON(listing.coordinates) :: json->'coordinates' AS coordinates,
-				listing.latitude_in_text,
-				listing.longitude_in_text,
-				listing.description,
-				listing.created_at
-			FROM listing
-			INNER JOIN listing_type ON listing_type.id = listing.listing_type_id
-			INNER JOIN property_status ON property_status.id = listing.property_status_id
-			INNER JOIN property ON property.listing_id = listing.id
-			INNER JOIN property_type ON property_type.id = property.property_type_id
-			INNER JOIN city ON city.id = property.city_id
-			WHERE property_status.slug = $1
-			${
-                queryParams?.property_type
-                    ? `AND property_type.slug = '${queryParams.property_type}'`
-                    : ''
-            }
-			${
-                queryParams?.listing_type
-                    ? `AND listing_type.slug = '${queryParams.listing_type}'`
-                    : ''
-            }
-			${
-                queryParams?.min_bedrooms && queryParams?.max_bedrooms
-                    ? `AND property.bedrooms >= ${queryParams.min_bedrooms} AND property.bedrooms <= ${queryParams.max_bedrooms}`
-                    : ''
-            }
-			${
-                queryParams?.min_bathrooms && queryParams?.max_bathrooms
-                    ? `AND property.bathrooms >= ${queryParams.min_bathrooms} AND property.bathrooms <= ${queryParams.max_bathrooms}`
-                    : ''
-            }
-			${
-                queryParams?.min_car_spaces && queryParams?.max_car_spaces
-                    ? `AND property.parking_space >= ${queryParams.min_car_spaces} AND property.parking_space <= ${queryParams.max_car_spaces}`
-                    : ''
-            }
-            ${
-                queryParams?.min_price && queryParams?.max_price
-                    ? `AND listing.price BETWEEN ${queryParams.min_price} AND ${queryParams.max_price}`
-                    : ''
-            }
-            ${
-                queryParams?.property_type &&
-                queryParams?.min_sqm &&
-                queryParams?.max_sqm
-                    ? areaSize(queryParams.property_type)
-                    : ''
-            }
-			${
-                queryParams?.after && !queryParams?.before
-                    ? `AND listing.id < ${queryParams.after}`
-                    : ''
-            }
-			${
-                queryParams?.before && !queryParams?.after
-                    ? `AND listing.id > ${queryParams.before}`
-                    : ''
-            }
-			ORDER BY listing.id DESC
-			LIMIT 10
-		`
+        function defaultSqlQuery(options: { count: boolean }) {
+            const properties = `
+                    listing.id,
+                    INITCAP(listing.listing_title) AS listing_title,
+                    listing.listing_url,
+                    listing.price,
+                    listing.price_formatted,
+                    listing.price_for_rent_per_sqm,
+                    listing.price_for_sale_per_sqm,
+                    listing.price_for_rent_per_sqm_formatted,
+                    listing.price_for_sale_per_sqm_formatted,
+                    listing_type.name AS listing_type,
+                    property_status.name AS property_status,
+                    property_type.name AS property_type,
+                    listing.sub_category,
+                    property.building_name,
+                    property.subdivision_name,
+                    property.floor_area,
+                    property.lot_area,
+                    property.building_size,
+                    property.bedrooms,
+                    property.bathrooms,
+                    property.parking_space,
+                    city.name AS city,
+                    property.area,
+                    property.address,
+                    property.features,
+                    property.main_image_url,
+                    ST_AsGeoJSON(listing.coordinates) :: json->'coordinates' AS coordinates,
+                    listing.latitude_in_text,
+                    listing.longitude_in_text,
+                    listing.description,
+                    listing.created_at
+                `
 
-        const sqlQueryWithWordSimilaritySearch = `
-			WITH similarity AS (
-				SELECT
-					listing.id,
-					INITCAP(listing.listing_title) AS listing_title,
-					listing.listing_url,
-					listing.price,
-					listing.price_formatted,
-					listing.price_for_rent_per_sqm,
-					listing.price_for_sale_per_sqm,
-					listing.price_for_rent_per_sqm_formatted,
-					listing.price_for_sale_per_sqm_formatted,
-					listing_type.name AS listing_type,
-					property_status.name AS property_status,
-					property_type.name AS property_type,
-					listing.sub_category,
-					property.building_name,
-					property.subdivision_name,
-					property.floor_area,
-					property.lot_area,
-					property.building_size,
-					property.bedrooms,
-					property.bathrooms,
-					property.parking_space,
-					city.name AS city,
-					property.area,
-					property.address,
-					property.features,
-					property.main_image_url,
-					ST_AsGeoJSON(listing.coordinates) :: json->'coordinates' AS coordinates,
-					listing.latitude_in_text,
-					listing.longitude_in_text,
-					WORD_SIMILARITY(listing.description, '${
-                        queryParams.search
-                    }') AS description_similarity,
-					listing.description,
-					listing.created_at
-				FROM listing
-				INNER JOIN listing_type ON listing_type.id = listing.listing_type_id
-				INNER JOIN property_status ON property_status.id = listing.property_status_id
-				INNER JOIN property ON property.listing_id = listing.id
-				INNER JOIN property_type ON property_type.id = property.property_type_id
-				INNER JOIN city ON city.id = property.city_id
-				WHERE property_status.slug = $1
-				${
+            return `
+                SELECT
+                    {return}
+                FROM listing
+                INNER JOIN listing_type ON listing_type.id = listing.listing_type_id
+                INNER JOIN property_status ON property_status.id = listing.property_status_id
+                INNER JOIN property ON property.listing_id = listing.id
+                INNER JOIN property_type ON property_type.id = property.property_type_id
+                INNER JOIN city ON city.id = property.city_id
+                WHERE property_status.slug = $1
+                ${
                     queryParams?.property_type
                         ? `AND property_type.slug = '${queryParams.property_type}'`
                         : ''
                 }
-				${
+                ${
                     queryParams?.listing_type
                         ? `AND listing_type.slug = '${queryParams.listing_type}'`
                         : ''
                 }
-				AND WORD_SIMILARITY(listing.description, '${queryParams.search}') > 0
-				${
+                ${
                     queryParams?.min_bedrooms && queryParams?.max_bedrooms
                         ? `AND property.bedrooms >= ${queryParams.min_bedrooms} AND property.bedrooms <= ${queryParams.max_bedrooms}`
                         : ''
                 }
-				${
+                ${
                     queryParams?.min_bathrooms && queryParams?.max_bathrooms
                         ? `AND property.bathrooms >= ${queryParams.min_bathrooms} AND property.bathrooms <= ${queryParams.max_bathrooms}`
                         : ''
                 }
-				${
+                ${
                     queryParams?.min_car_spaces && queryParams?.max_car_spaces
                         ? `AND property.parking_space >= ${queryParams.min_car_spaces} AND property.parking_space <= ${queryParams.max_car_spaces}`
                         : ''
@@ -359,42 +268,155 @@ export async function propertyListings(
                         ? areaSize(queryParams.property_type)
                         : ''
                 }
-			)
-			SELECT *
-			FROM similarity
-			${
-                queryParams?.after && !queryParams?.before
-                    ? `WHERE description_similarity < ${queryParams.after}`
-                    : ''
-            }
-			${
-                queryParams?.before && !queryParams?.after
-                    ? `WHERE description_similarity > ${queryParams.before}`
-                    : ''
-            }
-			ORDER BY description_similarity DESC
-			LIMIT 10;
-		`
+                ${
+                    queryParams?.after && !queryParams?.before
+                        ? `AND listing.id < ${queryParams.after}`
+                        : ''
+                }
+                ${
+                    queryParams?.before && !queryParams?.after
+                        ? `AND listing.id > ${queryParams.before}`
+                        : ''
+                }
+                ${!options.count ? `ORDER BY listing.id DESC LIMIT 10` : ''};
+            `.replace('{return}', options.count ? 'COUNT(*)' : properties)
+        }
+
+        function sqlQueryWithWordSimilaritySearch(options: { count: boolean }) {
+            return `
+                WITH similarity AS (
+                    SELECT
+                        listing.id,
+                        INITCAP(listing.listing_title) AS listing_title,
+                        listing.listing_url,
+                        listing.price,
+                        listing.price_formatted,
+                        listing.price_for_rent_per_sqm,
+                        listing.price_for_sale_per_sqm,
+                        listing.price_for_rent_per_sqm_formatted,
+                        listing.price_for_sale_per_sqm_formatted,
+                        listing_type.name AS listing_type,
+                        property_status.name AS property_status,
+                        property_type.name AS property_type,
+                        listing.sub_category,
+                        property.building_name,
+                        property.subdivision_name,
+                        property.floor_area,
+                        property.lot_area,
+                        property.building_size,
+                        property.bedrooms,
+                        property.bathrooms,
+                        property.parking_space,
+                        city.name AS city,
+                        property.area,
+                        property.address,
+                        property.features,
+                        property.main_image_url,
+                        ST_AsGeoJSON(listing.coordinates) :: json->'coordinates' AS coordinates,
+                        listing.latitude_in_text,
+                        listing.longitude_in_text,
+                        WORD_SIMILARITY(listing.description, '${
+                            queryParams.search
+                        }') AS description_similarity,
+                        listing.description,
+                        listing.created_at
+                    FROM listing
+                    INNER JOIN listing_type ON listing_type.id = listing.listing_type_id
+                    INNER JOIN property_status ON property_status.id = listing.property_status_id
+                    INNER JOIN property ON property.listing_id = listing.id
+                    INNER JOIN property_type ON property_type.id = property.property_type_id
+                    INNER JOIN city ON city.id = property.city_id
+                    WHERE property_status.slug = $1
+                    ${
+                        queryParams?.property_type
+                            ? `AND property_type.slug = '${queryParams.property_type}'`
+                            : ''
+                    }
+                    ${
+                        queryParams?.listing_type
+                            ? `AND listing_type.slug = '${queryParams.listing_type}'`
+                            : ''
+                    }
+                    AND WORD_SIMILARITY(listing.description, '${queryParams.search}') > 0
+                    ${
+                        queryParams?.min_bedrooms && queryParams?.max_bedrooms
+                            ? `AND property.bedrooms >= ${queryParams.min_bedrooms} AND property.bedrooms <= ${queryParams.max_bedrooms}`
+                            : ''
+                    }
+                    ${
+                        queryParams?.min_bathrooms && queryParams?.max_bathrooms
+                            ? `AND property.bathrooms >= ${queryParams.min_bathrooms} AND property.bathrooms <= ${queryParams.max_bathrooms}`
+                            : ''
+                    }
+                    ${
+                        queryParams?.min_car_spaces &&
+                        queryParams?.max_car_spaces
+                            ? `AND property.parking_space >= ${queryParams.min_car_spaces} AND property.parking_space <= ${queryParams.max_car_spaces}`
+                            : ''
+                    }
+                    ${
+                        queryParams?.min_price && queryParams?.max_price
+                            ? `AND listing.price BETWEEN ${queryParams.min_price} AND ${queryParams.max_price}`
+                            : ''
+                    }
+                    ${
+                        queryParams?.property_type &&
+                        queryParams?.min_sqm &&
+                        queryParams?.max_sqm
+                            ? areaSize(queryParams.property_type)
+                            : ''
+                    }
+                )
+                SELECT {return}
+                FROM similarity
+                ${
+                    queryParams?.after && !queryParams?.before
+                        ? `WHERE description_similarity < ${queryParams.after}`
+                        : ''
+                }
+                ${
+                    queryParams?.before && !queryParams?.after
+                        ? `WHERE description_similarity > ${queryParams.before}`
+                        : ''
+                }
+                ${
+                    !options.count
+                        ? `ORDER BY description_similarity DESC LIMIT 10`
+                        : ''
+                };
+		    `.replace('{return}', options.count ? 'COUNT(*)' : '*')
+        }
 
         const sqlQuery = removeExtraSpaces(
             queryParams?.search
-                ? sqlQueryWithWordSimilaritySearch
-                : defaultSqlQuery
+                ? sqlQueryWithWordSimilaritySearch({ count: false })
+                : defaultSqlQuery({ count: false })
         )
 
-        const query = await client.query(sqlQuery, ['available'])
+        const sqlQueryCount = removeExtraSpaces(
+            queryParams?.search
+                ? sqlQueryWithWordSimilaritySearch({ count: true })
+                : defaultSqlQuery({ count: true })
+        )
 
-        const recordCount = query.rows.length
+        await client.query('BEGIN')
+        const query = await client.query(sqlQuery, ['available'])
+        const queryCount = await client.query(sqlQueryCount, ['available'])
+        await client.query('COMMIT')
+
+        const recordCount = query.rowCount
 
         return {
             jsonBody: {
                 before: recordCount ? query.rows[0].id : null,
                 after: recordCount ? query.rows[recordCount - 1].id : null,
+                count: Number(queryCount.rows[0].count),
                 data: query.rows,
             },
         }
     } catch (error) {
         console.log(error)
+        await client.query('ROLLBACK')
 
         return {
             jsonBody: {
@@ -403,6 +425,7 @@ export async function propertyListings(
             status: 500,
         }
     } finally {
+        client.release()
         pool.end()
     }
 }
