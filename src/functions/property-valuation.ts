@@ -11,9 +11,11 @@ import { formatCurrency } from '../utils/formatCurrency'
 import { removeExtraSpaces } from '../utils/removeExtraSpaces'
 
 const querySchema = z.object({
+    user_id: z.string().optional(),
     property_type: z.enum(['Condominium', 'House', 'Warehouse']),
-    city: z.string().optional(),
     sqm: z.preprocess((val) => processNumber(String(val)), z.number().min(20)),
+    city: z.string().optional(),
+    address: z.string(),
 })
 
 export async function propertyValuation(
@@ -51,7 +53,8 @@ export async function propertyValuation(
 
     try {
         const propertyStatus = 'Available'
-        const { property_type, city, sqm } = parsedQueryParams.data
+        const { user_id, property_type, city, address, sqm } =
+            parsedQueryParams.data
 
         function areaSize(propertyType: string) {
             switch (propertyType) {
@@ -151,50 +154,111 @@ export async function propertyValuation(
             [propertyStatus, property_type, sqm]
         )
 
+        const saleAveragePrice = formatPrice(
+            propertyValuationForSale.rowCount
+                ? propertyValuationForSale.rows[0].average_price
+                : '0'
+        )
+
+        const averageSalePricePerSqm =
+            parseFloat(saleAveragePrice?.replace(/,|₱/g, '')) / sqm
+
+        const salePricePerSqm = formatCurrency(
+            formatPrice(
+                String(
+                    isNaN(averageSalePricePerSqm) ? 0 : averageSalePricePerSqm
+                )
+            )
+        )
+
+        const rentAveragePrice = formatPrice(
+            propertyValuationForRent.rowCount
+                ? propertyValuationForRent.rows[0].average_price
+                : '0'
+        )
+
+        const averageRentPricePerSqm =
+            parseFloat(rentAveragePrice?.replace(/,|₱/g, '')) / sqm
+
+        console.log(averageRentPricePerSqm)
+
+        const rentPricePerSqm = formatCurrency(
+            formatPrice(
+                String(
+                    isNaN(averageRentPricePerSqm) ? 0 : averageRentPricePerSqm
+                )
+            )
+        )
+
+        console.log(rentPricePerSqm)
+
+        if (user_id) {
+            const ct = await client.query(
+                'SELECT id FROM city WHERE name = $1',
+                [city ?? null]
+            )
+
+            enum PropertyType {
+                'Condominium' = 1,
+                'House' = 2,
+                'Warehouse' = 3,
+                'Land' = 4,
+                'Apartment' = 5,
+            }
+
+            const user = await client.query(
+                'SELECT id FROM user WHERE clerk_id = $1',
+                [user_id]
+            )
+
+            if (user.rowCount) {
+                await client.query(
+                    `INSERT INTO valuation (
+                        user_id,
+                        city_id,
+                        address,
+                        property_size,
+                        property_type_id,
+                        estimated_formatted_average_price_sale,
+                        estimated_formatted_average_price_per_sqm_sale,
+                        top_ten_similar_properties_sale,
+                        estimated_formatted_average_price_rent,
+                        estimated_formatted_average_price_per_sqm_rent,
+                        top_ten_similar_properties_rent
+                    ) VALUES (
+                        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+                    )`,
+                    [
+                        user_id,
+                        ct.rowCount ? ct.rows[0].id : null,
+                        address,
+                        sqm,
+                        PropertyType[property_type],
+                        saleAveragePrice,
+                        salePricePerSqm,
+                        similarPropertiesForSale.rows,
+                        rentAveragePrice,
+                        rentPricePerSqm,
+                        similarPropertiesForRent.rows,
+                    ]
+                )
+            }
+        }
+
         await client.query('COMMIT')
-
-        const saleAveragePrice = propertyValuationForSale.rowCount
-            ? propertyValuationForSale.rows[0].average_price
-            : 0
-
-        const salePricePerSqm =
-            parseFloat(saleAveragePrice?.replace(/,/g, '')) / sqm
-
-        const rentAveragePrice = propertyValuationForRent.rowCount
-            ? propertyValuationForRent.rows[0].average_price
-            : 0
-
-        const rentPricePerSqm =
-            parseFloat(rentAveragePrice?.replace(/,/g, '')) / sqm
 
         return {
             jsonBody: {
                 data: {
                     valuation: {
                         sale: {
-                            average_price: formatPrice(saleAveragePrice),
-                            price_per_sqm: formatCurrency(
-                                formatPrice(
-                                    String(
-                                        isNaN(salePricePerSqm)
-                                            ? 0
-                                            : salePricePerSqm
-                                    )
-                                )
-                            ),
+                            average_price: saleAveragePrice,
+                            price_per_sqm: salePricePerSqm,
                             similar_properties: similarPropertiesForSale.rows,
                         },
                         rent: {
-                            average_price: formatPrice(rentAveragePrice),
-                            price_per_sqm: formatCurrency(
-                                formatPrice(
-                                    String(
-                                        isNaN(rentPricePerSqm)
-                                            ? 0
-                                            : rentPricePerSqm
-                                    )
-                                )
-                            ),
+                            average_price: rentAveragePrice,
+                            price_per_sqm: rentPricePerSqm,
                             similar_properties: similarPropertiesForRent.rows,
                         },
                         property_type,
