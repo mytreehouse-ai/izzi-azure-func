@@ -5,9 +5,9 @@ import {
     InvocationContext,
 } from '@azure/functions'
 import { z } from 'zod'
+import { getPoolDb } from '../database/neon'
 import { processNumber } from '../utils/processNumber'
 import { removeExtraSpaces } from '../utils/removeExtraSpaces'
-import { getPoolDb } from '../database/neon'
 
 const propertyTypes = z.enum(['condominium', 'house', 'warehouse', 'land'])
 const listingTypes = z.enum(['for-sale', 'for-rent'])
@@ -104,7 +104,9 @@ export async function propertyListings(
                         property.area,
                         property.address,
                         property.features,
+                        property.equipments,
                         property.main_image_url,
+                        agent.name AS agent_name,
                         ST_AsGeoJSON(listing.coordinates) :: json->'coordinates' AS coordinates,
                         listing.latitude_in_text,
                         listing.longitude_in_text,
@@ -117,6 +119,7 @@ export async function propertyListings(
                     INNER JOIN property ON property.listing_id = listing.id
                     INNER JOIN property_type ON property_type.id = property.property_type_id
                     INNER JOIN city ON city.id = property.city_id
+                    LEFT JOIN agent ON agent.id = listing.agent_id
                     WHERE listing.id = $1
                 ),
                 property_images_agg AS (
