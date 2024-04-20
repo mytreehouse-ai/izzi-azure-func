@@ -67,10 +67,6 @@ export async function propertyValuation(
             }
         }
 
-        function formatPrice(price: string | null) {
-            return `₱${price ?? '0'}`
-        }
-
         function sqlQueryValuation(options: {
             listingType: string
             propertyType: string
@@ -78,7 +74,7 @@ export async function propertyValuation(
             const { listingType, propertyType } = options
 
             return `
-                SELECT TO_CHAR(ROUND(AVG(price)::numeric, 2), 'FM999,999,999,990D00') AS average_price
+                SELECT AVG(price) AS average_price
                 FROM listing l
                     INNER JOIN property p on l.id = p.listing_id
                     INNER JOIN property_status ps on l.property_status_id = ps.id
@@ -173,43 +169,21 @@ export async function propertyValuation(
             [propertyStatus, property_type, sqm]
         )
 
-        const saleAveragePrice = formatPrice(
-            propertyValuationForSale.rowCount
-                ? propertyValuationForSale.rows[0].average_price
-                : '0'
-        )
+        const saleAveragePrice = propertyValuationForSale.rows[0].average_price
 
-        const averageSalePricePerSqm =
-            parseFloat(saleAveragePrice?.replace(/,|₱/g, '')) / sqm
+        const averageSalePricePerSqm = parseFloat(saleAveragePrice) / sqm
 
-        const salePricePerSqm = formatCurrency(
-            formatPrice(
-                String(
-                    isNaN(averageSalePricePerSqm) ? 0 : averageSalePricePerSqm
-                )
-            )
-        )
+        const salePricePerSqm = formatCurrency(String(averageSalePricePerSqm))
 
-        const rentAveragePrice = formatPrice(
-            propertyValuationForRent.rowCount
-                ? propertyValuationForRent.rows[0].average_price
-                : '0'
-        )
+        const rentAveragePrice = propertyValuationForRent.rows[0].average_price
 
-        const averageRentPricePerSqm =
-            parseFloat(rentAveragePrice?.replace(/,|₱/g, '')) / sqm
+        const averageRentPricePerSqm = parseFloat(rentAveragePrice) / sqm
 
-        const rentPricePerSqm = formatCurrency(
-            formatPrice(
-                String(
-                    isNaN(averageRentPricePerSqm) ? 0 : averageRentPricePerSqm
-                )
-            )
-        )
+        const rentPricePerSqm = formatCurrency(String(averageRentPricePerSqm))
 
         if (user_id) {
             const ct = await client.query(
-                'SELECT id FROM city WHERE name = $1',
+                'SELECT id FROM city WHERE name = $1;',
                 [city ?? null]
             )
 
@@ -222,7 +196,16 @@ export async function propertyValuation(
             }
 
             const user = await client.query(
-                'SELECT id FROM user WHERE clerk_id = $1',
+                `WITH upsert AS (
+                    INSERT INTO "user" (clerk_id)
+                    VALUES ($1)
+                    ON CONFLICT (clerk_id) DO NOTHING
+                    RETURNING id
+                )
+                SELECT id FROM upsert
+                UNION ALL
+                SELECT id FROM "user" WHERE clerk_id = $1
+                LIMIT 1;`,
                 [user_id]
             )
 
@@ -249,10 +232,10 @@ export async function propertyValuation(
                         address,
                         sqm,
                         PropertyType[property_type],
-                        saleAveragePrice,
+                        formatCurrency(String(saleAveragePrice)),
                         salePricePerSqm,
                         similarPropertiesForSale.rows,
-                        rentAveragePrice,
+                        formatCurrency(String(rentAveragePrice)),
                         rentPricePerSqm,
                         similarPropertiesForRent.rows,
                     ]
@@ -267,12 +250,16 @@ export async function propertyValuation(
                 data: {
                     valuation: {
                         sale: {
-                            average_price: saleAveragePrice,
+                            average_price: formatCurrency(
+                                String(saleAveragePrice)
+                            ),
                             price_per_sqm: salePricePerSqm,
                             similar_properties: similarPropertiesForSale.rows,
                         },
                         rent: {
-                            average_price: rentAveragePrice,
+                            average_price: formatCurrency(
+                                String(rentAveragePrice)
+                            ),
                             price_per_sqm: rentPricePerSqm,
                             similar_properties: similarPropertiesForRent.rows,
                         },
