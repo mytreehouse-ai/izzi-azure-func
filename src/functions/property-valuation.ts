@@ -180,8 +180,6 @@ export async function propertyValuation(
         const averageRentPricePerSqm =
             parseFloat(rentAveragePrice?.replace(/,|₱/g, '')) / sqm
 
-        console.log(averageRentPricePerSqm)
-
         const rentPricePerSqm = formatCurrency(
             formatPrice(
                 String(
@@ -189,8 +187,6 @@ export async function propertyValuation(
                 )
             )
         )
-
-        console.log(rentPricePerSqm)
 
         if (user_id) {
             const ct = await client.query(
@@ -269,8 +265,7 @@ export async function propertyValuation(
         }
     } catch (error) {
         await client.query('ROLLBACK')
-
-        console.log(error)
+        console.error(error)
 
         return {
             jsonBody: {
