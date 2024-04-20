@@ -43,7 +43,8 @@ export async function listingCities(
         }
 
         const query = await client.query(
-            `SELECT 
+            `SELECT
+              c.id,
               c.name,
               r.name AS region
             FROM city AS c
