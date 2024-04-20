@@ -71,7 +71,12 @@ export async function propertyValuation(
             return `₱${price ?? '0'}`
         }
 
-        function sqlQueryValuation(listingType: string, propertyType: string) {
+        function sqlQueryValuation(options: {
+            listingType: string
+            propertyType: string
+        }) {
+            const { listingType, propertyType } = options
+
             return `
                 SELECT TO_CHAR(ROUND(AVG(price)::numeric, 2), 'FM999,999,999,990D00') AS average_price
                 FROM listing l
@@ -89,10 +94,12 @@ export async function propertyValuation(
             `
         }
 
-        function sqlQuerySimilarProperties(
-            listingType: string,
+        function sqlQuerySimilarProperties(options: {
+            listingType: string
             propertyType: string
-        ) {
+        }) {
+            const { listingType, propertyType } = options
+
             return `
                 SELECT 
                     l.id, 
@@ -117,19 +124,31 @@ export async function propertyValuation(
         }
 
         const sqlQueryValuationForSale = removeExtraSpaces(
-            sqlQueryValuation('For Sale', property_type)
+            sqlQueryValuation({
+                listingType: 'For Sale',
+                propertyType: property_type,
+            })
         )
 
         const sqlQuerySimilarPropertiesForSale = removeExtraSpaces(
-            sqlQuerySimilarProperties('For Sale', property_type)
+            sqlQuerySimilarProperties({
+                listingType: 'For Sale',
+                propertyType: property_type,
+            })
         )
 
         const sqlQueryValuationForRent = removeExtraSpaces(
-            sqlQueryValuation('For Rent', property_type)
+            sqlQueryValuation({
+                listingType: 'For Rent',
+                propertyType: property_type,
+            })
         )
 
         const sqlQuerySimilarPropertiesForRent = removeExtraSpaces(
-            sqlQuerySimilarProperties('For Rent', property_type)
+            sqlQuerySimilarProperties({
+                listingType: 'For Rent',
+                propertyType: property_type,
+            })
         )
 
         await client.query('BEGIN')
