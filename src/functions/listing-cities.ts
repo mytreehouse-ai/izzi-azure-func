@@ -52,7 +52,7 @@ export async function listingCities(
             ORDER BY c.name ASC`
         )
 
-        await rd.set('cities', JSON.stringify(query.rows))
+        await rd.set('cities', JSON.stringify(query.rows), { EX: 60 * 60 * 4 })
 
         return {
             jsonBody: {
