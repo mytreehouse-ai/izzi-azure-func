@@ -281,7 +281,7 @@ export async function propertyValuation(
         }
     } finally {
         client.release()
-        pool.end()
+        await pool.end()
     }
 }
 

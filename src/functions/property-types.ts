@@ -94,7 +94,7 @@ export async function propertyTypes(
             status: 500,
         }
     } finally {
-        pool.end()
+        await pool.end()
     }
 }
 

@@ -39,7 +39,7 @@ export async function propertyStatus(
             status: 500,
         }
     } finally {
-        pool.end()
+        await pool.end()
     }
 }
 

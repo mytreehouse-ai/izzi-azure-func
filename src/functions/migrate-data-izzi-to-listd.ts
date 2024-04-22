@@ -45,11 +45,11 @@ const izziListingQuery = `
     INNER JOIN property_type ON property_type.id = property.property_type_id
     INNER JOIN city ON city.id = property.city_id
     WHERE listing.migrated_to_listd = false
-    LIMIT 50;
+    ORDER BY listing.created_at ASC LIMIT 50;
 `
 
 export async function migrateDataIzziToListd(
-    myTimer: Timer,
+    _myTimer: Timer,
     context: InvocationContext
 ): Promise<void> {
     const databaIzziseUrl = process.env['NEON_DATABASE_URL']
@@ -67,8 +67,10 @@ export async function migrateDataIzziToListd(
         listings.rows.forEach(async (listing) => {
             const city = listing.city
 
+            await listdClient.query('BEGIN')
+
             const listdCity = await listdClient.query(
-                'SELECT id FROM cities WHERE name = $1 LIMIT 1',
+                'SELECT id FROM cities WHERE name = $1 LIMIT 1;',
                 [city]
             )
 
@@ -105,7 +107,6 @@ export async function migrateDataIzziToListd(
                     }
                 }
 
-                await listdClient.query('BEGIN')
                 const listdListingExist = await listdClient.query(
                     'SELECT id FROM listings WHERE listing_title = $1;',
                     [listing.listing_title]
@@ -204,25 +205,30 @@ export async function migrateDataIzziToListd(
                             )
                         })
                     }
+
+                    context.log(
+                        `New listing: ${newListdListing.rows[0].id}, New property: ${listdNewProperty.rows[0].id}`
+                    )
                 }
-                await listdClient.query('COMMIT')
 
                 await izziClient.query(
-                    'UPDATE FROM listing SET migrated_to_listd = true WHERE id = $1;',
+                    'UPDATE listing SET migrated_to_listd = true WHERE id = $1;',
                     [listing.id]
                 )
             }
+
+            await listdClient.query('COMMIT')
         })
     } catch (error) {
         await listdClient.query('ROLLBACK')
         context.error(error?.message || "Something wen't wrong.")
     } finally {
-        izziPool.end()
-        listdPool.end()
+        await izziPool.end()
+        await listdPool.end()
     }
 }
 
 app.timer('migrate-data-izzi-to-listd', {
-    schedule: '0 * * * * *',
+    schedule: '*/15 * * * * *',
     handler: migrateDataIzziToListd,
 })
