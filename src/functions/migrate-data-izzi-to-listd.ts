@@ -45,7 +45,7 @@ const izziListingQuery = `
     INNER JOIN property_type ON property_type.id = property.property_type_id
     INNER JOIN city ON city.id = property.city_id
     WHERE listing.migrated_to_listd = false
-    LIMIT 10;
+    LIMIT 50;
 `
 
 export async function migrateDataIzziToListd(
@@ -208,7 +208,7 @@ export async function migrateDataIzziToListd(
                 await listdClient.query('COMMIT')
 
                 await izziClient.query(
-                    'UPDATE FROM listing SET migrated_to_listd = true WHERE id = $1',
+                    'UPDATE FROM listing SET migrated_to_listd = true WHERE id = $1;',
                     [listing.id]
                 )
             }
