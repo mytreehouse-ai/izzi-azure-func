@@ -24,7 +24,7 @@
         "@types/node": "^18.x",
         "@types/pg": "^8.11.5",
         "@types/ws": "^8.5.10",
-        "eslint": "^9.0.0",
+        "eslint": "^9.1.0",
         "eslint-config-prettier": "^9.1.0",
         "prettier": "^3.2.5",
         "rimraf": "^5.0.0",
