@@ -45,7 +45,7 @@ const izziListingQuery = `
     INNER JOIN property_type ON property_type.id = property.property_type_id
     INNER JOIN city ON city.id = property.city_id
     WHERE listing.migrated_to_listd = false
-    ORDER BY listing.created_at ASC LIMIT 50;
+    ORDER BY listing.created_at ASC LIMIT 300;
 `
 
 export async function migrateDataIzziToListd(
