@@ -429,7 +429,7 @@ export async function propertyListings(
         }
     } finally {
         client.release()
-        await pool.end()
+        pool.end()
     }
 }
 

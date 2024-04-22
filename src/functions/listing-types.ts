@@ -39,7 +39,7 @@ export async function listingTypes(
             status: 500,
         }
     } finally {
-        await pool.end()
+        pool.end()
     }
 }
 

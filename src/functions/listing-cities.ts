@@ -67,7 +67,7 @@ export async function listingCities(
             status: 500,
         }
     } finally {
-        await pool.end()
+        pool.end()
     }
 }
 

@@ -12,7 +12,7 @@ import { removeExtraSpaces } from '../utils/removeExtraSpaces'
 
 const querySchema = z.object({
     user_id: z.string().optional(),
-    property_type: z.enum(['Condominium', 'House', 'Warehouse']),
+    property_type: z.enum(['Condominium', 'House', 'Warehouse', 'Land']),
     sqm: z.preprocess((val) => processNumber(String(val)), z.number().min(20)),
     city: z.string().optional(),
     address: z.string(),

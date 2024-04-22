@@ -108,33 +108,42 @@ export async function migrateDataIzziToListd(
                 }
 
                 const listdListingExist = await listdClient.query(
-                    'SELECT id FROM listings WHERE listing_title = $1;',
-                    [listing.listing_title]
+                    'SELECT id FROM listings WHERE listing_title = $1 OR listing_url = $2;',
+                    [listing.listing_title, listing.listing_url]
                 )
 
                 if (listdListingExist.rowCount === 0) {
                     const newListdListing = await listdClient.query(
-                        `
-                        INSERT INTO listings (
-                            agent_id,
-                            listing_title,
-                            listing_url,
-                            listing_type_id,
-                            sub_category,
-                            property_status_id,
-                            slug,
-                            price,
-                            price_formatted,
-                            price_for_rent_per_sqm,
-                            price_for_sale_per_sqm,
-                            price_for_rent_per_sqm_formatted,
-                            price_for_sale_per_sqm_formatted,
-                            latitude_in_text,
-                            longitude_in_text,
-                            description
-                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-                        RETURNING id;
-                    `,
+                        `WITH upsert AS (
+                            INSERT INTO listings (
+                                agent_id,
+                                listing_title,
+                                listing_url,
+                                listing_type_id,
+                                sub_category,
+                                property_status_id,
+                                slug,
+                                price,
+                                price_formatted,
+                                price_for_rent_per_sqm,
+                                price_for_sale_per_sqm,
+                                price_for_rent_per_sqm_formatted,
+                                price_for_sale_per_sqm_formatted,
+                                latitude_in_text,
+                                longitude_in_text,
+                                description
+                            )
+                            SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
+                            WHERE NOT EXISTS (
+                                SELECT 1 FROM listings WHERE listing_title = $2
+                            )
+                            RETURNING id
+                        )
+                        SELECT id FROM upsert
+                        UNION ALL
+                        SELECT id FROM listings WHERE listing_title = $2
+                        LIMIT 1;
+                        `,
                         [
                             agentId,
                             listing.listing_title,
@@ -223,12 +232,13 @@ export async function migrateDataIzziToListd(
         await listdClient.query('ROLLBACK')
         context.error(error?.message || "Something wen't wrong.")
     } finally {
-        await izziPool.end()
-        await listdPool.end()
+        izziPool.end()
+        listdPool.end()
     }
 }
 
 app.timer('migrate-data-izzi-to-listd', {
-    schedule: '*/15 * * * * *',
+    schedule: '0 */5 * * * *',
     handler: migrateDataIzziToListd,
+    runOnStartup: false,
 })
