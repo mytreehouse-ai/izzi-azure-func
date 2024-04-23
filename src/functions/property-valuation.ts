@@ -14,7 +14,7 @@ const querySchema = z.object({
     user_id: z.string().optional(),
     property_type: z.enum(['Condominium', 'House', 'Warehouse', 'Land']),
     sqm: z.preprocess((val) => processNumber(String(val)), z.number().min(20)),
-    city: z.string().optional(),
+    area: z.string().optional(),
     address: z.string(),
 })
 
@@ -53,7 +53,7 @@ export async function propertyValuation(
 
     try {
         const propertyStatus = 'Available'
-        const { user_id, property_type, city, address, sqm } =
+        const { user_id, property_type, area, address, sqm } =
             parsedQueryParams.data
 
         function areaSize(propertyType: string) {
@@ -80,12 +80,13 @@ export async function propertyValuation(
                     INNER JOIN property_status ps on l.property_status_id = ps.id
                     INNER JOIN listing_type lt on l.listing_type_id = lt.id
                     INNER JOIN property_type pt on p.property_type_id = pt.id
-                    ${city ? 'INNER JOIN city ON city.id = p.city_id' : ''}
+                    ${area ? 'INNER JOIN city ON city.id = p.city_id' : ''}
                 WHERE
                     ps.name = $1
-                    AND lt.name = '${listingType}'
                     AND pt.name = $2
-                    ${city ? `AND city.name = '${city}'` : ''}
+                    AND lt.name = '${listingType}'
+                    AND l.price > 10000
+                    ${area ? `AND city.name = '${area}'` : ''}
                 AND ${areaSize(propertyType)};
             `
         }
@@ -98,7 +99,7 @@ export async function propertyValuation(
 
             return `
                 SELECT 
-                    l.id, 
+                    l.id,
                     l.listing_title,
                     l.listing_url,
                     l.price_formatted 
@@ -107,13 +108,14 @@ export async function propertyValuation(
                     INNER JOIN property_status ps on l.property_status_id = ps.id
                     INNER JOIN listing_type lt on l.listing_type_id = lt.id
                     INNER JOIN property_type pt on p.property_type_id = pt.id
-                    ${city ? 'INNER JOIN city ON city.id = p.city_id' : ''}
+                    ${area ? 'INNER JOIN city ON city.id = p.city_id' : ''}
                 WHERE
                     ps.name = $1
-                    AND lt.name = '${listingType}'
                     AND pt.name = $2
+                    AND lt.name = '${listingType}'
                     AND ${areaSize(propertyType)}
-                    ${city ? `AND city.name = '${city}'` : ''}
+                    AND l.price > 10000
+                    ${area ? `AND city.name = '${area}'` : ''}
                 ORDER BY l.created_at DESC
                 LIMIT 10;
             `
@@ -184,7 +186,7 @@ export async function propertyValuation(
         if (user_id) {
             const ct = await client.query(
                 'SELECT id FROM city WHERE name = $1;',
-                [city ?? null]
+                [area ?? null]
             )
 
             enum PropertyType {
@@ -192,7 +194,6 @@ export async function propertyValuation(
                 'House' = 2,
                 'Warehouse' = 3,
                 'Land' = 4,
-                'Apartment' = 5,
             }
 
             const user = await client.query(

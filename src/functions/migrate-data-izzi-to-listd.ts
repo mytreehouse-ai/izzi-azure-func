@@ -45,7 +45,7 @@ const izziListingQuery = `
     INNER JOIN property_type ON property_type.id = property.property_type_id
     INNER JOIN city ON city.id = property.city_id
     WHERE listing.migrated_to_listd = false
-    ORDER BY listing.created_at ASC LIMIT 300;
+    ORDER BY listing.created_at ASC LIMIT 150;
 `
 
 export async function migrateDataIzziToListd(
@@ -63,6 +63,8 @@ export async function migrateDataIzziToListd(
 
     try {
         const listings = await izziClient.query(izziListingQuery)
+
+        context.info(`Listings row count: ${listings.rowCount}`)
 
         listings.rows.forEach(async (listing) => {
             const city = listing.city
@@ -219,26 +221,28 @@ export async function migrateDataIzziToListd(
                         `New listing: ${newListdListing.rows[0].id}, New property: ${listdNewProperty.rows[0].id}`
                     )
                 }
-
-                await izziClient.query(
-                    'UPDATE listing SET migrated_to_listd = true WHERE id = $1;',
-                    [listing.id]
-                )
             }
+
+            await izziClient.query(
+                'UPDATE listing SET migrated_to_listd = true WHERE id = $1;',
+                [listing.id]
+            )
 
             await listdClient.query('COMMIT')
         })
+
+        context.info('Done...')
     } catch (error) {
         await listdClient.query('ROLLBACK')
         context.error(error?.message || "Something wen't wrong.")
     } finally {
-        izziPool.end()
-        listdPool.end()
+        context.log('Pool end.')
+        await izziPool.end()
+        await listdPool.end()
     }
 }
 
 app.timer('migrate-data-izzi-to-listd', {
-    schedule: '0 */5 * * * *',
+    schedule: '0 */1 * * * *',
     handler: migrateDataIzziToListd,
-    runOnStartup: false,
 })
