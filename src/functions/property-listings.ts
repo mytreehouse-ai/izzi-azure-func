@@ -235,6 +235,7 @@ export async function propertyListings(
                 INNER JOIN property_type ON property_type.id = property.property_type_id
                 INNER JOIN city ON city.id = property.city_id
                 WHERE property_status.slug = $1
+                AND listing.price >= 5000
                 ${
                     queryParams?.property_type
                         ? `AND property_type.slug = '${queryParams.property_type}'`
@@ -332,6 +333,7 @@ export async function propertyListings(
                     INNER JOIN property_type ON property_type.id = property.property_type_id
                     INNER JOIN city ON city.id = property.city_id
                     WHERE property_status.slug = $1
+                    AND listing.price >= 5000
                     ${
                         queryParams?.property_type
                             ? `AND property_type.slug = '${queryParams.property_type}'`
@@ -407,6 +409,7 @@ export async function propertyListings(
         await client.query('BEGIN')
         const query = await client.query(sqlQuery, ['available'])
         const queryCount = await client.query(sqlQueryCount, ['available'])
+        // TODO: Soon we might need to log user behavior on search.
         await client.query('COMMIT')
 
         const recordCount = query.rowCount

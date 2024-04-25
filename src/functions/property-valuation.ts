@@ -95,6 +95,7 @@ export async function propertyValuation(
                     AND pt.name = $2
                     AND lt.name = '${listingType}'
                     AND STRICT_WORD_SIMILARITY(cities.name, $4) > 0.5
+                    AND l.price >= 50000
                     AND ${areaSize(propertyType)};
             `
         }
@@ -123,8 +124,9 @@ export async function propertyValuation(
                         ps.name = $1
                         AND pt.name = $2
                         AND lt.name = '${listingType}'
-                        AND ${areaSize(propertyType)}
                         AND STRICT_WORD_SIMILARITY(cities.name, $4) > 0.5
+                        AND l.price >= 5000
+                        AND ${areaSize(propertyType)}
                 )
                 SELECT * FROM strict_similarity_word ORDER BY city_name_similarity DESC LIMIT 10
             `
