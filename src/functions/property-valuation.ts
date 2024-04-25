@@ -14,15 +14,17 @@ const querySchema = z.object({
     user_id: z.string().optional(),
     property_type: z.enum(['Condominium', 'House', 'Warehouse', 'Land']),
     sqm: z.preprocess((val) => processNumber(String(val)), z.number().min(20)),
-    area: z.string().optional(),
+    city: z.string(),
     address: z.string(),
+    google_places_data: z.string().optional(),
+    google_places_details: z.string().optional(),
 })
 
 export async function propertyValuation(
     request: HttpRequest,
     _context: InvocationContext
 ): Promise<HttpResponseInit> {
-    const databaseUrl = process.env['NEON_DATABASE_URL']
+    const databaseUrl = process.env['NEON_LISTD_DATABASE_URL']
 
     if (!databaseUrl) {
         return {
@@ -53,8 +55,15 @@ export async function propertyValuation(
 
     try {
         const propertyStatus = 'Available'
-        const { user_id, property_type, area, address, sqm } =
-            parsedQueryParams.data
+        const {
+            user_id,
+            property_type,
+            city,
+            address,
+            sqm,
+            google_places_data,
+            google_places_details,
+        } = parsedQueryParams.data
 
         function areaSize(propertyType: string) {
             switch (propertyType) {
@@ -75,19 +84,18 @@ export async function propertyValuation(
 
             return `
                 SELECT AVG(price) AS average_price
-                FROM listing l
-                    INNER JOIN property p on l.id = p.listing_id
+                FROM listings l
+                    INNER JOIN properties p on l.id = p.listing_id
                     INNER JOIN property_status ps on l.property_status_id = ps.id
-                    INNER JOIN listing_type lt on l.listing_type_id = lt.id
-                    INNER JOIN property_type pt on p.property_type_id = pt.id
-                    ${area ? 'INNER JOIN city ON city.id = p.city_id' : ''}
+                    INNER JOIN listing_types lt on l.listing_type_id = lt.id
+                    INNER JOIN property_types pt on p.property_type_id = pt.id
+                    INNER JOIN cities ON cities.id = p.city_id
                 WHERE
                     ps.name = $1
                     AND pt.name = $2
                     AND lt.name = '${listingType}'
-                    AND l.price > 10000
-                    ${area ? `AND city.name = '${area}'` : ''}
-                AND ${areaSize(propertyType)};
+                    AND STRICT_WORD_SIMILARITY(cities.name, $4) > 0.5
+                    AND ${areaSize(propertyType)};
             `
         }
 
@@ -98,26 +106,27 @@ export async function propertyValuation(
             const { listingType, propertyType } = options
 
             return `
-                SELECT 
-                    l.id,
-                    l.listing_title,
-                    l.listing_url,
-                    l.price_formatted 
-                FROM listing l
-                    INNER JOIN property p on l.id = p.listing_id
-                    INNER JOIN property_status ps on l.property_status_id = ps.id
-                    INNER JOIN listing_type lt on l.listing_type_id = lt.id
-                    INNER JOIN property_type pt on p.property_type_id = pt.id
-                    ${area ? 'INNER JOIN city ON city.id = p.city_id' : ''}
-                WHERE
-                    ps.name = $1
-                    AND pt.name = $2
-                    AND lt.name = '${listingType}'
-                    AND ${areaSize(propertyType)}
-                    AND l.price > 10000
-                    ${area ? `AND city.name = '${area}'` : ''}
-                ORDER BY l.created_at DESC
-                LIMIT 10;
+                WITH strict_similarity_word AS (
+                    SELECT 
+                        l.id,
+                        l.listing_title,
+                        l.listing_url,
+                        l.price_formatted,
+                        STRICT_WORD_SIMILARITY(cities.name, $4) AS city_name_similarity
+                    FROM listings l
+                        INNER JOIN properties p on l.id = p.listing_id
+                        INNER JOIN property_status ps on l.property_status_id = ps.id
+                        INNER JOIN listing_types lt on l.listing_type_id = lt.id
+                        INNER JOIN property_types pt on p.property_type_id = pt.id
+                        INNER JOIN cities ON cities.id = p.city_id
+                    WHERE
+                        ps.name = $1
+                        AND pt.name = $2
+                        AND lt.name = '${listingType}'
+                        AND ${areaSize(propertyType)}
+                        AND STRICT_WORD_SIMILARITY(cities.name, $4) > 0.5
+                )
+                SELECT * FROM strict_similarity_word ORDER BY city_name_similarity DESC LIMIT 10
             `
         }
 
@@ -153,22 +162,22 @@ export async function propertyValuation(
 
         const propertyValuationForSale = await client.query(
             sqlQueryValuationForSale,
-            [propertyStatus, property_type, sqm]
+            [propertyStatus, property_type, sqm, city]
         )
 
         const similarPropertiesForSale = await client.query(
             sqlQuerySimilarPropertiesForSale,
-            [propertyStatus, property_type, sqm]
+            [propertyStatus, property_type, sqm, city]
         )
 
         const propertyValuationForRent = await client.query(
             sqlQueryValuationForRent,
-            [propertyStatus, property_type, sqm]
+            [propertyStatus, property_type, sqm, city]
         )
 
         const similarPropertiesForRent = await client.query(
             sqlQuerySimilarPropertiesForRent,
-            [propertyStatus, property_type, sqm]
+            [propertyStatus, property_type, sqm, city]
         )
 
         const saleAveragePrice = propertyValuationForSale.rows[0].average_price
@@ -185,8 +194,17 @@ export async function propertyValuation(
 
         if (user_id) {
             const ct = await client.query(
-                'SELECT id FROM city WHERE name = $1;',
-                [area ?? null]
+                `WITH strict_similarity_word AS (
+                    SELECT 
+                        id,
+                        STRICT_WORD_SIMILARITY(cities.name, $1) AS city_name_similarity
+                    FROM 
+                        cities
+                    WHERE 
+                        STRICT_WORD_SIMILARITY(cities.name, $1) > 0.5
+                )
+                SELECT * FROM strict_similarity_word ORDER BY city_name_similarity DESC LIMIT 1`,
+                [city]
             )
 
             enum PropertyType {
@@ -198,21 +216,21 @@ export async function propertyValuation(
 
             const user = await client.query(
                 `WITH upsert AS (
-                    INSERT INTO "user" (clerk_id)
+                    INSERT INTO users (clerk_id)
                     VALUES ($1)
                     ON CONFLICT (clerk_id) DO NOTHING
                     RETURNING id
                 )
                 SELECT id FROM upsert
                 UNION ALL
-                SELECT id FROM "user" WHERE clerk_id = $1
+                SELECT id FROM users WHERE clerk_id = $1
                 LIMIT 1;`,
                 [user_id]
             )
 
             if (user.rowCount) {
                 await client.query(
-                    `INSERT INTO valuation (
+                    `INSERT INTO valuations (
                         user_id,
                         city_id,
                         address,
@@ -223,9 +241,11 @@ export async function propertyValuation(
                         top_ten_similar_properties_sale,
                         estimated_formatted_average_price_rent,
                         estimated_formatted_average_price_per_sqm_rent,
-                        top_ten_similar_properties_rent
+                        top_ten_similar_properties_rent,
+                        google_places_data,
+                        google_places_details
                     ) VALUES (
-                        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+                        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
                     )`,
                     [
                         user_id,
@@ -239,6 +259,12 @@ export async function propertyValuation(
                         formatCurrency(String(rentAveragePrice)),
                         rentPricePerSqm,
                         similarPropertiesForRent.rows,
+                        google_places_data
+                            ? JSON.parse(google_places_data)
+                            : null,
+                        google_places_details
+                            ? JSON.parse(google_places_details)
+                            : null,
                     ]
                 )
             }
