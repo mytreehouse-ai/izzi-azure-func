@@ -12,6 +12,8 @@
     },
     "dependencies": {
         "@azure/functions": "^4.0.0",
+        "@azure/identity": "^4.1.0",
+        "@azure/storage-blob": "^12.17.0",
         "@clerk/clerk-sdk-node": "^4.13.14",
         "@neondatabase/serverless": "^0.9.1",
         "pg": "^8.11.5",
