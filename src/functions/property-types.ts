@@ -16,7 +16,7 @@ export async function propertyTypes(
     request: HttpRequest,
     _context: InvocationContext
 ): Promise<HttpResponseInit> {
-    const databaseUrl = process.env['NEON_DATABASE_URL']
+    const databaseUrl = process.env['NEON_LISTD_DATABASE_URL']
 
     if (!databaseUrl) {
         return {
@@ -63,7 +63,7 @@ export async function propertyTypes(
             )
 
             const findOne = await client.query(
-                `SELECT * FROM property_type WHERE name = $1`,
+                `SELECT * FROM property_types WHERE name = $1`,
                 [parsedBody.data.propertyTypeName]
             )
 
@@ -76,7 +76,7 @@ export async function propertyTypes(
             }
 
             const query = await client.query(
-                'INSERT INTO property_type (name, slug) VALUES ($1, $2) RETURNING *',
+                'INSERT INTO property_types (name, slug) VALUES ($1, $2) RETURNING *',
                 [parsedBody.data.propertyTypeName, slug]
             )
 

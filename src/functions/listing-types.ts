@@ -10,7 +10,7 @@ export async function listingTypes(
     _request: HttpRequest,
     _context: InvocationContext
 ): Promise<HttpResponseInit> {
-    const databaseUrl = process.env['NEON_DATABASE_URL']
+    const databaseUrl = process.env['NEON_LISTD_DATABASE_URL']
 
     if (!databaseUrl) {
         return {
@@ -24,7 +24,7 @@ export async function listingTypes(
     const { client, pool } = await getPoolDb(databaseUrl)
 
     try {
-        const query = await client.query('SELECT * FROM listing_type')
+        const query = await client.query('SELECT * FROM listing_types')
 
         return {
             jsonBody: {

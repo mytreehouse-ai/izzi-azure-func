@@ -10,7 +10,7 @@ export async function propertyStatus(
     _request: HttpRequest,
     _context: InvocationContext
 ): Promise<HttpResponseInit> {
-    const databaseUrl = process.env['NEON_DATABASE_URL']
+    const databaseUrl = process.env['NEON_LISTD_DATABASE_URL']
 
     if (!databaseUrl) {
         return {

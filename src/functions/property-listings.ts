@@ -58,7 +58,7 @@ export async function propertyListings(
     request: HttpRequest,
     _context: InvocationContext
 ): Promise<HttpResponseInit> {
-    const databaseUrl = process.env['NEON_DATABASE_URL']
+    const databaseUrl = process.env['NEON_LISTD_DATABASE_URL']
 
     if (!databaseUrl) {
         return {
@@ -228,12 +228,12 @@ export async function propertyListings(
             return `
                 SELECT
                     {return}
-                FROM listing
-                INNER JOIN listing_type ON listing_type.id = listing.listing_type_id
+                FROM listings AS listing
+                INNER JOIN listing_types AS listing_type ON listing_type.id = listing.listing_type_id
                 INNER JOIN property_status ON property_status.id = listing.property_status_id
-                INNER JOIN property ON property.listing_id = listing.id
-                INNER JOIN property_type ON property_type.id = property.property_type_id
-                INNER JOIN city ON city.id = property.city_id
+                INNER JOIN properties AS property ON property.listing_id = listing.id
+                INNER JOIN property_types AS property_type ON property_type.id = property.property_type_id
+                INNER JOIN cities AS city ON city.id = property.city_id
                 WHERE property_status.slug = $1
                 AND listing.price >= 5000
                 ${
@@ -326,12 +326,12 @@ export async function propertyListings(
                         }') AS description_similarity,
                         listing.description,
                         listing.created_at
-                    FROM listing
-                    INNER JOIN listing_type ON listing_type.id = listing.listing_type_id
+                    FROM listings AS listing
+                    INNER JOIN listing_types AS listing_type ON listing_type.id = listing.listing_type_id
                     INNER JOIN property_status ON property_status.id = listing.property_status_id
-                    INNER JOIN property ON property.listing_id = listing.id
-                    INNER JOIN property_type ON property_type.id = property.property_type_id
-                    INNER JOIN city ON city.id = property.city_id
+                    INNER JOIN properties AS property ON property.listing_id = listing.id
+                    INNER JOIN property_types AS property_type ON property_type.id = property.property_type_id
+                    INNER JOIN cities AS city ON city.id = property.city_id
                     WHERE property_status.slug = $1
                     AND listing.price >= 5000
                     ${

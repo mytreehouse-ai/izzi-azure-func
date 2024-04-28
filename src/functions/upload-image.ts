@@ -89,7 +89,7 @@ export async function uploadImage(
             status: 200,
         }
     } catch (error) {
-        console.log(error)
+        context.error(error)
         return {
             jsonBody: {
                 message: 'Something went wrong' || error?.message,

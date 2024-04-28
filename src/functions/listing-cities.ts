@@ -11,7 +11,7 @@ export async function listingCities(
     _request: HttpRequest,
     _context: InvocationContext
 ): Promise<HttpResponseInit> {
-    const databaseUrl = process.env['NEON_DATABASE_URL']
+    const databaseUrl = process.env['NEON_LISTD_DATABASE_URL']
 
     if (!databaseUrl) {
         return {
@@ -47,8 +47,8 @@ export async function listingCities(
               c.id,
               c.name,
               r.name AS region
-            FROM city AS c
-            INNER JOIN region AS r ON r.id = c.region_id 
+            FROM cities AS c
+            INNER JOIN regions AS r ON r.id = c.region_id 
             ORDER BY c.name ASC`
         )
 
