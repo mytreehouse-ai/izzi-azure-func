@@ -4,44 +4,123 @@ import {
     HttpResponseInit,
     InvocationContext,
 } from '@azure/functions'
-import { DefaultAzureCredential } from '@azure/identity'
-import { BlobServiceClient } from '@azure/storage-blob'
+import {
+    BlobServiceClient,
+    StorageSharedKeyCredential,
+} from '@azure/storage-blob'
+import { Base64 } from 'js-base64'
+import tinify from 'tinify'
+import { z } from 'zod'
+
+const querySchema = z.object({
+    base64: z.string().refine(Base64.isValid),
+})
 
 export async function uploadImage(
     request: HttpRequest,
     context: InvocationContext
 ): Promise<HttpResponseInit> {
-    const account = 'izziassets'
-    const defaultAzureCredential = new DefaultAzureCredential()
+    try {
+        const parsedBody = await querySchema.safeParseAsync(
+            await request.json()
+        )
 
-    const blobServiceClient = new BlobServiceClient(
-        `https://${account}.blob.core.windows.net`,
-        defaultAzureCredential
-    )
+        if (parsedBody.success === false) {
+            const error = parsedBody.error.issues[0]
 
-    const containerClient = blobServiceClient.getContainerClient('images')
+            return {
+                jsonBody: {
+                    message: `[${error.path}]: ${error.message}`.toLowerCase(),
+                },
+                status: 400,
+            }
+        }
 
-    const content = 'Hello world!'
-    const blobName = 'newblob' + new Date().getTime()
-    const blockBlobClient = containerClient.getBlockBlobClient(blobName)
-    const uploadBlobResponse = await blockBlobClient.upload(
-        content,
-        content.length
-    )
-    console.log(
-        `Upload block blob ${blobName} successfully`,
-        uploadBlobResponse.requestId
-    )
+        tinify.key = process.env['TINYFY_API_KEY']
+        const account = 'izziassets'
+        const container = 'images'
+        const blobUrl = `https://${account}.blob.core.windows.net`
+        const sharedKeyCredential = new StorageSharedKeyCredential(
+            account,
+            process.env['AZURE_BLOB_STORAGE_SHARED_KEY']
+        )
 
-    context.log(`Http function processed request for url "${request.url}"`)
+        const blobServiceClient = new BlobServiceClient(
+            blobUrl,
+            sharedKeyCredential
+        )
 
-    const name = request.query.get('name') || (await request.text()) || 'world'
+        const containerClient = blobServiceClient.getContainerClient(container)
 
-    return { body: `Hello, ${name}!` }
+        const matches = parsedBody.data.base64
+            .trim()
+            .match(/^data:([A-Za-z-+\/]+);base64,(.+)$/)
+
+        if (matches === null) {
+            return {
+                jsonBody: {
+                    message:
+                        'The provided string does not contain Base64 data.',
+                },
+                status: 400,
+            }
+        }
+
+        const mimeType = matches[1]
+        const base64Data = matches[2]
+        const buffer = Buffer.from(base64Data, 'base64')
+
+        const resultData = await compressImage(buffer)
+
+        const blobName = new Date().getTime() + extractFileExtension(mimeType)
+        const blockBlobClient = containerClient.getBlockBlobClient(blobName)
+        await blockBlobClient.upload(resultData, resultData.byteLength, {
+            blobHTTPHeaders: {
+                blobContentType: mimeType,
+            },
+        })
+
+        return {
+            jsonBody: {
+                blobUrl: `${blobUrl}/${container}/${blobName}`,
+            },
+            status: 200,
+        }
+    } catch (error) {
+        console.log(error)
+        return {
+            jsonBody: {
+                message: 'Something went wrong' || error?.message,
+            },
+            status: 500,
+        }
+    }
+}
+
+function extractFileExtension(mimeType: string): string | null {
+    const regex = /\/([a-zA-Z0-9]+)$/
+    const match = mimeType.match(regex)
+    if (match && match[1]) {
+        return '.' + match[1]
+    } else {
+        return null
+    }
+}
+
+async function compressImage(buffer: Buffer): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+        tinify.fromBuffer(buffer).toBuffer((err, resultData) => {
+            if (err) {
+                reject(err)
+            } else {
+                resolve(Buffer.from(resultData))
+            }
+        })
+    })
 }
 
 app.http('upload-image', {
-    methods: ['GET', 'POST'],
+    methods: ['POST'],
     authLevel: 'anonymous',
     handler: uploadImage,
 })
