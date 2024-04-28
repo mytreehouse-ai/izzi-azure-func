@@ -71,7 +71,6 @@ export async function uploadImage(
         const buffer = Buffer.from(base64Data, 'base64')
 
         const resultData = await compressImage(buffer)
-
         const blobName = new Date().getTime() + extractFileExtension(mimeType)
         const blockBlobClient = containerClient.getBlockBlobClient(blobName)
         await blockBlobClient.upload(resultData, resultData.byteLength, {
