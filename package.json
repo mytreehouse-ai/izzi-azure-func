@@ -14,7 +14,7 @@
         "@azure/functions": "^4.0.0",
         "@azure/identity": "^4.1.0",
         "@azure/storage-blob": "^12.17.0",
-        "@clerk/clerk-sdk-node": "^4.13.14",
+        "@clerk/clerk-sdk-node": "^5.0.2",
         "@neondatabase/serverless": "^0.9.1",
         "js-base64": "^3.7.7",
         "pg": "^8.11.5",
