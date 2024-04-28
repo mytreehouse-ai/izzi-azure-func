@@ -13,7 +13,10 @@ import tinify from 'tinify'
 import { z } from 'zod'
 
 const querySchema = z.object({
-    base64: z.string().refine(Base64.isValid),
+    base64: z.string().refine((arg) => {
+        const base64 = arg.replace('data:image/jpeg;base64,', '').trim()
+        return Base64.isValid(base64)
+    }),
 })
 
 export async function uploadImage(
@@ -52,9 +55,9 @@ export async function uploadImage(
 
         const containerClient = blobServiceClient.getContainerClient(container)
 
-        const matches = parsedBody.data.base64
-            .trim()
-            .match(/^data:([A-Za-z-+\/]+);base64,(.+)$/)
+        const matches = parsedBody.data.base64.match(
+            /^data:([A-Za-z-+\/]+);base64,(.+)$/
+        )
 
         if (matches === null) {
             return {
