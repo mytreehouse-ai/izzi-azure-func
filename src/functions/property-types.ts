@@ -33,7 +33,7 @@ export async function propertyTypes(
         const requestMethod = request.method
 
         if (requestMethod === 'GET') {
-            const query = await client.query('SELECT * FROM property_type')
+            const query = await client.query('SELECT * FROM property_types')
 
             return {
                 jsonBody: {

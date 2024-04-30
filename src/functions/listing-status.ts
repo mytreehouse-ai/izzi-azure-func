@@ -6,7 +6,7 @@ import {
 } from '@azure/functions'
 import { getPoolDb } from '../database/neon'
 
-export async function propertyStatus(
+export async function listingStatus(
     _request: HttpRequest,
     _context: InvocationContext
 ): Promise<HttpResponseInit> {
@@ -43,8 +43,8 @@ export async function propertyStatus(
     }
 }
 
-app.http('property-status', {
-    methods: ['GET', 'POST'],
+app.http('listing-status', {
+    methods: ['GET'],
     authLevel: 'anonymous',
-    handler: propertyStatus,
+    handler: listingStatus,
 })

@@ -19,7 +19,7 @@ const querySchema = z.object({
     }),
 })
 
-export async function uploadImage(
+export async function uploadBase64Image(
     request: HttpRequest,
     context: InvocationContext
 ): Promise<HttpResponseInit> {
@@ -121,8 +121,8 @@ async function compressImage(buffer: Buffer): Promise<Buffer> {
     })
 }
 
-app.http('upload-image', {
+app.http('upload-base64-image', {
     methods: ['POST'],
     authLevel: 'anonymous',
-    handler: uploadImage,
+    handler: uploadBase64Image,
 })

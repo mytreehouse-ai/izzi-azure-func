@@ -9,7 +9,7 @@ import { redis } from '../database/redis'
 
 export async function listingCities(
     _request: HttpRequest,
-    _context: InvocationContext
+    context: InvocationContext
 ): Promise<HttpResponseInit> {
     const databaseUrl = process.env['NEON_LISTD_DATABASE_URL']
 
@@ -44,12 +44,12 @@ export async function listingCities(
 
         const query = await client.query(
             `SELECT
-              c.id,
-              c.name,
-              r.name AS region
-            FROM cities AS c
-            INNER JOIN regions AS r ON r.id = c.region_id 
-            ORDER BY c.name ASC`
+              city.id,
+              city.name,
+              region.name AS region
+            FROM cities AS city
+            INNER JOIN regions AS region ON region.region_id = city.region_id 
+            ORDER BY city.name ASC`
         )
 
         await rd.set('cities', JSON.stringify(query.rows), { EX: 60 * 60 * 4 })
@@ -60,6 +60,7 @@ export async function listingCities(
             },
         }
     } catch (error) {
+        context.error(error)
         return {
             jsonBody: {
                 message: 'Something went wrong.' || error?.message,

@@ -12,7 +12,18 @@ import { removeExtraSpaces } from '../utils/removeExtraSpaces'
 const propertyTypes = z.enum(['condominium', 'house', 'warehouse', 'land'])
 const listingTypes = z.enum(['for-sale', 'for-rent'])
 
-const querySchema = z.object({
+const createPropertyListingSchema = z.object({
+    listing_title: z.string().min(10),
+    property_type: propertyTypes,
+    listing_type: listingTypes,
+    price: z.number().min(1000),
+    address: z.string().min(10),
+    city: z.number().min(1),
+    longitude: z.number().min(-90).max(90),
+    latitude: z.number().min(-180).max(180),
+})
+
+const filterPropertyQueryParamsSchema = z.object({
     search: z.string().optional(),
     property_type: propertyTypes.optional(),
     listing_type: listingTypes.optional(),
@@ -97,6 +108,8 @@ export async function propertyListings(
                         property.floor_area,
                         property.lot_area,
                         property.building_size,
+                        property.unit_no,
+                        property.floor_bo,
                         property.bedrooms,
                         property.bathrooms,
                         property.parking_space,
@@ -111,15 +124,16 @@ export async function propertyListings(
                         listing.latitude_in_text,
                         listing.longitude_in_text,
                         listing.description,
+                        listing.ai_description,
                         listing.scraped_property,
                         listing.created_at
-                    FROM listing
-                    INNER JOIN listing_type ON listing_type.id = listing.listing_type_id
+                    FROM listings AS listing
+                    INNER JOIN listing_types AS listing_type ON listing_type.id = listing.listing_type_id
                     INNER JOIN property_status ON property_status.id = listing.property_status_id
-                    INNER JOIN property ON property.listing_id = listing.id
-                    INNER JOIN property_type ON property_type.id = property.property_type_id
-                    INNER JOIN city ON city.id = property.city_id
-                    LEFT JOIN agent ON agent.id = listing.agent_id
+                    INNER JOIN properties AS property ON property.listing_id = listing.id
+                    INNER JOIN property_types AS property_type ON property_type.id = property.property_type_id
+                    INNER JOIN cities AS city ON city.id = property.city_id
+                    LEFT JOIN property_agents AS agent ON agent.id = listing.agent_id
                     WHERE listing.id = $1
                 ),
                 property_images_agg AS (
@@ -153,6 +167,23 @@ export async function propertyListings(
         }
 
         if (requestMethod === 'POST') {
+            const parsedRequestBody =
+                await createPropertyListingSchema.safeParseAsync(
+                    await request.json()
+                )
+
+            if (parsedRequestBody.success === false) {
+                const error = parsedRequestBody.error.issues[0]
+
+                return {
+                    jsonBody: {
+                        message:
+                            `[${error.path}]: ${error.message}`.toLowerCase(),
+                    },
+                    status: 400,
+                }
+            }
+
             return {
                 jsonBody: {
                     data: {},
@@ -163,7 +194,8 @@ export async function propertyListings(
         const requestQuery = new URLSearchParams(request.query)
         const queryObject = Object.fromEntries(requestQuery.entries())
 
-        const parsedQueryParams = await querySchema.safeParseAsync(queryObject)
+        const parsedQueryParams =
+            await filterPropertyQueryParamsSchema.safeParseAsync(queryObject)
 
         if (parsedQueryParams.success === false) {
             const error = parsedQueryParams.error.issues[0]
@@ -209,6 +241,8 @@ export async function propertyListings(
                     property.floor_area,
                     property.lot_area,
                     property.building_size,
+                    property.unit_no,
+                    property.floor_no,
                     property.bedrooms,
                     property.bathrooms,
                     property.parking_space,
@@ -222,6 +256,7 @@ export async function propertyListings(
                     listing.latitude_in_text,
                     listing.longitude_in_text,
                     listing.description,
+                    listing.ai_description,
                     listing.created_at
                 `
 
@@ -309,6 +344,8 @@ export async function propertyListings(
                         property.floor_area,
                         property.lot_area,
                         property.building_size,
+                        property.unit_no,
+                        property.floor_no,
                         property.bedrooms,
                         property.bathrooms,
                         property.parking_space,
@@ -325,6 +362,7 @@ export async function propertyListings(
                             queryParams.search
                         }') AS description_similarity,
                         listing.description,
+                        listing.ai_description,
                         listing.created_at
                     FROM listings AS listing
                     INNER JOIN listing_types AS listing_type ON listing_type.id = listing.listing_type_id
