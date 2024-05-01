@@ -9,7 +9,12 @@ import { getPoolDb } from '../database/neon'
 import { processNumber } from '../utils/processNumber'
 import { removeExtraSpaces } from '../utils/removeExtraSpaces'
 
-const propertyTypes = z.enum(['condominium', 'house', 'warehouse', 'land'])
+const propertyTypes = z.enum([
+    'condominium',
+    'house-and-lot',
+    'warehouse',
+    'land',
+])
 const listingTypes = z.enum(['for-sale', 'for-rent'])
 
 const createPropertyListingSchema = z.object({
