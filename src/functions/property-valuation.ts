@@ -23,8 +23,8 @@ const querySchema = z.object({
     sqm: z.preprocess((val) => processNumber(String(val)), z.number().min(20)),
     city: z.string(),
     address: z.string(),
-    google_places_data: z.string().optional(),
-    google_places_details: z.string().optional(),
+    google_places_data_id: z.string().optional(),
+    google_places_details_id: z.string().optional(),
 })
 
 export async function propertyValuation(
@@ -68,8 +68,8 @@ export async function propertyValuation(
             city,
             address,
             sqm,
-            google_places_data,
-            google_places_details,
+            google_places_data_id,
+            google_places_details_id,
         } = parsedQueryParams.data
 
         function areaSize(propertyType: string) {
@@ -99,8 +99,8 @@ export async function propertyValuation(
                     INNER JOIN cities ON cities.id = p.city_id
                 WHERE
                     ps.name = $1
-                    AND pt.name = $2
-                    AND lt.name = '${listingType}'
+                    AND pt.slug = $2
+                    AND lt.slug = '${listingType}'
                     AND STRICT_WORD_SIMILARITY(cities.name, $4) > 0.5
                     AND l.price >= 5000
                     AND ${areaSize(propertyType)};
@@ -129,8 +129,8 @@ export async function propertyValuation(
                         INNER JOIN cities ON cities.id = p.city_id
                     WHERE
                         ps.name = $1
-                        AND pt.name = $2
-                        AND lt.name = '${listingType}'
+                        AND pt.slug = $2
+                        AND lt.slug = '${listingType}'
                         AND STRICT_WORD_SIMILARITY(cities.name, $4) > 0.5
                         AND l.price >= 5000
                         AND ${areaSize(propertyType)}
@@ -141,28 +141,28 @@ export async function propertyValuation(
 
         const sqlQueryValuationForSale = removeExtraSpaces(
             sqlQueryValuation({
-                listingType: 'For Sale',
+                listingType: 'for-sale',
                 propertyType: property_type,
             })
         )
 
         const sqlQuerySimilarPropertiesForSale = removeExtraSpaces(
             sqlQuerySimilarProperties({
-                listingType: 'For Sale',
+                listingType: 'for-sale',
                 propertyType: property_type,
             })
         )
 
         const sqlQueryValuationForRent = removeExtraSpaces(
             sqlQueryValuation({
-                listingType: 'For Rent',
+                listingType: 'for-rent',
                 propertyType: property_type,
             })
         )
 
         const sqlQuerySimilarPropertiesForRent = removeExtraSpaces(
             sqlQuerySimilarProperties({
-                listingType: 'For Rent',
+                listingType: 'for-rent',
                 propertyType: property_type,
             })
         )
@@ -251,8 +251,8 @@ export async function propertyValuation(
                         estimated_formatted_average_price_rent,
                         estimated_formatted_average_price_per_sqm_rent,
                         top_ten_similar_properties_rent,
-                        google_places_data,
-                        google_places_details
+                        google_places_data_id,
+                        google_places_details_id
                     ) VALUES (
                         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
                     )`,
@@ -268,12 +268,8 @@ export async function propertyValuation(
                         formatCurrency(String(rentAveragePrice)),
                         rentPricePerSqm,
                         similarPropertiesForRent.rows,
-                        google_places_data
-                            ? JSON.parse(google_places_data)
-                            : null,
-                        google_places_details
-                            ? JSON.parse(google_places_details)
-                            : null,
+                        google_places_data_id ?? null,
+                        google_places_details_id ?? null,
                     ]
                 )
             }

@@ -24,8 +24,8 @@ const createPropertyListingSchema = z.object({
     price: z.number().min(1000),
     address: z.string().min(10),
     city: z.number().min(1),
-    longitude: z.number().min(-90).max(90),
-    latitude: z.number().min(-180).max(180),
+    longitude: z.number(),
+    latitude: z.number(),
 })
 
 const filterPropertyQueryParamsSchema = z.object({
@@ -241,8 +241,11 @@ export async function propertyListings(
                     listing.price_for_rent_per_sqm_formatted,
                     listing.price_for_sale_per_sqm_formatted,
                     listing_type.name AS listing_type,
+                    listing_type.slug AS listing_type_slug,
                     property_status.name AS property_status,
+                    property_status.slug AS property_status_slug,
                     property_type.name AS property_type,
+                    property_type.slug AS property_type_slug,
                     listing.sub_category,
                     property.building_name,
                     property.subdivision_name,
@@ -335,7 +338,7 @@ export async function propertyListings(
 
         function sqlQueryWithWordSimilaritySearch(options: { count: boolean }) {
             return `
-                WITH similarity AS (
+                WITH with_word_similarity AS (
                     SELECT
                         listing.id,
                         INITCAP(listing.listing_title) AS listing_title,
@@ -347,8 +350,11 @@ export async function propertyListings(
                         listing.price_for_rent_per_sqm_formatted,
                         listing.price_for_sale_per_sqm_formatted,
                         listing_type.name AS listing_type,
+                        listing_type.slug AS listing_type_slug,
                         property_status.name AS property_status,
+                        property_status.slug AS property_status_slug,
                         property_type.name AS property_type,
+                        property_type.slug AS property_type_slug,
                         listing.sub_category,
                         property.building_name,
                         property.subdivision_name,
@@ -427,7 +433,7 @@ export async function propertyListings(
                     }
                 )
                 SELECT {return}
-                FROM similarity
+                FROM with_word_similarity
                 ${
                     queryParams?.after && !queryParams?.before
                         ? `WHERE description_similarity < ${queryParams.after}`
@@ -445,6 +451,14 @@ export async function propertyListings(
                 };
 		    `.replace('{return}', options.count ? 'COUNT(*)' : '*')
         }
+
+        function defaultSqlQueryWithGeoCoordinates(options: {
+            count: boolean
+        }) {}
+
+        function sqlQueryWithWordSimilaritySearchAndGeoCoordinates(options: {
+            count: boolean
+        }) {}
 
         const sqlQuery = removeExtraSpaces(
             queryParams?.search
