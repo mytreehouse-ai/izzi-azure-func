@@ -6,8 +6,8 @@ import {
 } from '@azure/functions'
 import { z } from 'zod'
 import { getPoolDb } from '../database/neon'
-import { processNumber } from '../utils/processNumber'
 import { formatCurrency } from '../utils/formatCurrency'
+import { processNumber } from '../utils/processNumber'
 import { removeExtraSpaces } from '../utils/removeExtraSpaces'
 
 const querySchema = z.object({
