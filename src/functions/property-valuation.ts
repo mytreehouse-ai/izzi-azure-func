@@ -10,9 +10,16 @@ import { formatCurrency } from '../utils/formatCurrency'
 import { processNumber } from '../utils/processNumber'
 import { removeExtraSpaces } from '../utils/removeExtraSpaces'
 
+const propertyTypes = z.enum([
+    'condominium',
+    'house-and-lot',
+    'warehouse',
+    'land',
+])
+
 const querySchema = z.object({
     user_id: z.string().optional(),
-    property_type: z.enum(['Condominium', 'House', 'Warehouse', 'Land']),
+    property_type: propertyTypes,
     sqm: z.preprocess((val) => processNumber(String(val)), z.number().min(20)),
     city: z.string(),
     address: z.string(),
@@ -54,7 +61,7 @@ export async function propertyValuation(
     const { client, pool } = await getPoolDb(databaseUrl)
 
     try {
-        const propertyStatus = 'Available'
+        const property_status = 'Available'
         const {
             user_id,
             property_type,
@@ -67,9 +74,9 @@ export async function propertyValuation(
 
         function areaSize(propertyType: string) {
             switch (propertyType) {
-                case 'Condominium':
+                case 'condominium':
                     return 'p.floor_area BETWEEN $3 * 0.8 AND $3 * 1.2'
-                case 'Warehouse':
+                case 'warehouse':
                     return 'p.building_size BETWEEN $3 * 0.8 AND $3 * 1.2'
                 default:
                     return 'p.lot_area BETWEEN $3 * 0.8 AND $3 * 1.2'
@@ -164,22 +171,22 @@ export async function propertyValuation(
 
         const propertyValuationForSale = await client.query(
             sqlQueryValuationForSale,
-            [propertyStatus, property_type, sqm, city]
+            [property_status, property_type, sqm, city]
         )
 
         const similarPropertiesForSale = await client.query(
             sqlQuerySimilarPropertiesForSale,
-            [propertyStatus, property_type, sqm, city]
+            [property_status, property_type, sqm, city]
         )
 
         const propertyValuationForRent = await client.query(
             sqlQueryValuationForRent,
-            [propertyStatus, property_type, sqm, city]
+            [property_status, property_type, sqm, city]
         )
 
         const similarPropertiesForRent = await client.query(
             sqlQuerySimilarPropertiesForRent,
-            [propertyStatus, property_type, sqm, city]
+            [property_status, property_type, sqm, city]
         )
 
         const saleAveragePrice = propertyValuationForSale.rows[0].average_price
